@@ -20,20 +20,33 @@ export default function Home() {
 
       socket.on("offer", async (offer) => {
         myPeerConnectionRef.current = new RTCPeerConnection({
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-          rtcpMuxPolicy: "require",
+          iceServers: [
+            {
+              urls: [
+                "stun:stun.l.google.com:19302",
+                "stun:stun1.l.google.com:19302",
+                "stun:stun2.l.google.com:19302",
+                "stun:stun3.l.google.com:19302",
+                "stun:stun4.l.google.com:19302",
+              ],
+            },
+          ],
+          iceTransportPolicy: "relay",
           bundlePolicy: "max-bundle",
+          rtcpMuxPolicy: "require",
         });
         myPeerConnectionRef.current.addEventListener("icecandidate", (data) => {
           socket.emit("ice", data.candidate, liveId);
         });
         myPeerConnectionRef.current.addEventListener("track", (data) => {
           if (videoRef.current) {
-            videoRef.current.srcObject = data.streams[0];
+            const [remoteStream] = data.streams;
+            videoRef.current.srcObject = remoteStream;
           }
         });
         await myPeerConnectionRef.current?.setRemoteDescription(offer);
-        const answer = await myPeerConnectionRef.current?.createAnswer();
+        const answer = await myPeerConnectionRef.current?.createAnswer({});
+
         myPeerConnectionRef.current.setLocalDescription(answer);
         socket.emit("answer", answer, liveId);
       });

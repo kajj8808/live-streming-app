@@ -63,55 +63,44 @@ export default function Page() {
       socket.emit("join_room", { liveId });
 
       myPeerConnectionRef.current = new RTCPeerConnection({
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        iceServers: [
+          {
+            urls: [
+              "stun:stun.l.google.com:19302",
+              "stun:stun1.l.google.com:19302",
+              "stun:stun2.l.google.com:19302",
+              "stun:stun3.l.google.com:19302",
+              "stun:stun4.l.google.com:19302",
+            ],
+          },
+        ],
+        iceTransportPolicy: "relay",
+        bundlePolicy: "max-bundle",
+        rtcpMuxPolicy: "require",
       });
-      /*  myPeerConnectionRef.current.addEventListener(
-        "icecandidate",
-        (data) => {}
-      ); */
+      /*       myPeerConnectionRef.current.addEventListener("icecandidate", (data) => {
+        console.log(data);
+      });
+       */
+      myStream.getTracks().forEach((track) => {
+        const sender = myPeerConnectionRef.current?.addTrack(track, myStream);
 
-      myStream
-        .getTracks()
-        .forEach((track) =>
-          myPeerConnectionRef.current?.addTrack(track, myStream)
-        );
-      const videoSender = myPeerConnectionRef.current
-        .getSenders()
-        .find((sender) => sender.track?.kind === "video");
-      if (videoSender) {
-        const params = videoSender.getParameters();
-        if (!params.encodings) {
-          params.encodings = [{}];
+        // 비디오 트랙인 경우 인코딩 파라미터 설정
+        if (track.kind === "video" && sender) {
+          const parameters = sender.getParameters();
+          if (!parameters.encodings) {
+            parameters.encodings = [{}];
+          }
+
+          // 비트레이트 증가, 품질 우선 설정
+          parameters.encodings[0].maxBitrate = 10 * 1000 * 1000;
+          parameters.encodings[0].scaleResolutionDownBy = 1; // 해상도 그대로 유지
+
+          sender
+            .setParameters(parameters)
+            .catch((e) => console.error("인코딩 파라미터 설정 실패:", e));
         }
-
-        params.encodings[0] = {
-          maxBitrate: 1000 * 1000 * 20, // 20mbps
-          priority: "high",
-          networkPriority: "high",
-          maxFramerate: 60,
-          scaleResolutionDownBy: 1,
-        };
-
-        videoSender.setParameters(params);
-      }
-
-      const audioSender = myPeerConnectionRef.current
-        .getSenders()
-        .find((sender) => sender.track?.kind === "audio");
-      if (audioSender) {
-        const params = audioSender.getParameters();
-        if (!params.encodings) {
-          params.encodings = [{}];
-        }
-
-        params.encodings[0] = {
-          maxBitrate: 510 * 1000, // 510kbps
-          priority: "high",
-          networkPriority: "high",
-        };
-
-        audioSender.setParameters(params);
-      }
+      });
     }
   };
 
@@ -125,7 +114,8 @@ export default function Page() {
 
       socket.on("join_user", async () => {
         const offer = await myPeerConnectionRef.current?.createOffer();
-        myPeerConnectionRef.current?.setLocalDescription(offer);
+
+        await myPeerConnectionRef.current?.setLocalDescription(offer);
         socket.emit("offer", offer, liveId);
       });
 
