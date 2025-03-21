@@ -32,25 +32,13 @@ export default function Page() {
 
   async function getMedia() {
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-
-      // 가상 오디오 장치 선택
-      const audioDevice = devices.find((device) =>
-        device.label.includes("CABLE Output")
-      );
-
-      const stream = await navigator.mediaDevices.getUserMedia({
+      const captureStream = await navigator.mediaDevices.getDisplayMedia({
+        audio: true,
         video: true,
-        audio: {
-          deviceId: audioDevice ? audioDevice.deviceId : undefined,
-          echoCancellation: false, // 에코 제거
-        },
       });
-
-      setMyStream(stream);
-
+      setMyStream(captureStream);
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+        videoRef.current.srcObject = captureStream;
       }
     } catch (error) {
       console.log(error);
@@ -58,50 +46,27 @@ export default function Page() {
   }
 
   const onSubmit = ({ title, description }: z.infer<typeof formSchema>) => {
-    if (myStream) {
-      socket.emit("start_broadcast", { title, description, liveId });
-      socket.emit("join_room", { liveId });
+    socket.emit("start_broadcast", { title, description, liveId });
+    socket.emit("join_room", { liveId });
 
-      myPeerConnectionRef.current = new RTCPeerConnection({
-        iceServers: [
-          {
-            urls: [
-              "stun:stun.l.google.com:19302",
-              "stun:stun1.l.google.com:19302",
-              "stun:stun2.l.google.com:19302",
-              "stun:stun3.l.google.com:19302",
-              "stun:stun4.l.google.com:19302",
-            ],
-          },
-        ],
-        iceTransportPolicy: "relay",
-        bundlePolicy: "max-bundle",
-        rtcpMuxPolicy: "require",
-      });
-      /*       myPeerConnectionRef.current.addEventListener("icecandidate", (data) => {
-        console.log(data);
-      });
-       */
-      myStream.getTracks().forEach((track) => {
-        const sender = myPeerConnectionRef.current?.addTrack(track, myStream);
-
-        // 비디오 트랙인 경우 인코딩 파라미터 설정
-        if (track.kind === "video" && sender) {
-          const parameters = sender.getParameters();
-          if (!parameters.encodings) {
-            parameters.encodings = [{}];
-          }
-
-          // 비트레이트 증가, 품질 우선 설정
-          parameters.encodings[0].maxBitrate = 10 * 1000 * 1000;
-          parameters.encodings[0].scaleResolutionDownBy = 1; // 해상도 그대로 유지
-
-          sender
-            .setParameters(parameters)
-            .catch((e) => console.error("인코딩 파라미터 설정 실패:", e));
-        }
-      });
-    }
+    myPeerConnectionRef.current = new RTCPeerConnection({
+      iceServers: [
+        {
+          urls: [
+            "stun:stun.l.google.com:19302",
+            "stun:stun1.l.google.com:19302",
+            "stun:stun2.l.google.com:19302",
+            "stun:stun3.l.google.com:19302",
+            "stun:stun4.l.google.com:19302",
+          ],
+        },
+      ],
+    });
+    myStream
+      ?.getTracks()
+      .forEach((track) =>
+        myPeerConnectionRef.current?.addTrack(track, myStream)
+      );
   };
 
   useEffect(() => {

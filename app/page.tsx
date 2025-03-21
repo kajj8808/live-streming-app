@@ -31,9 +31,6 @@ export default function Home() {
               ],
             },
           ],
-          iceTransportPolicy: "relay",
-          bundlePolicy: "max-bundle",
-          rtcpMuxPolicy: "require",
         });
         myPeerConnectionRef.current.addEventListener("icecandidate", (data) => {
           socket.emit("ice", data.candidate, liveId);
@@ -41,6 +38,7 @@ export default function Home() {
         myPeerConnectionRef.current.addEventListener("track", (data) => {
           if (videoRef.current) {
             const [remoteStream] = data.streams;
+            console.log("remote", remoteStream);
             videoRef.current.srcObject = remoteStream;
           }
         });
