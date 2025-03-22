@@ -31,9 +31,6 @@ export default function Home() {
               ],
             },
           ],
-          iceTransportPolicy: "relay",
-          bundlePolicy: "max-bundle",
-          rtcpMuxPolicy: "require",
         });
         myPeerConnectionRef.current.addEventListener("icecandidate", (data) => {
           socket.emit("ice", data.candidate, liveId);
@@ -48,6 +45,7 @@ export default function Home() {
         const answer = await myPeerConnectionRef.current?.createAnswer({});
 
         myPeerConnectionRef.current.setLocalDescription(answer);
+
         socket.emit("answer", answer, liveId);
       });
 

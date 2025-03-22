@@ -57,6 +57,49 @@ export default function Page() {
     }
   }
 
+  function changeVideoCodec() {
+    if (myPeerConnectionRef.current) {
+      const transceivers = myPeerConnectionRef.current.getTransceivers();
+
+      transceivers.forEach((transceiver) => {
+        const kind = transceiver.sender.track?.kind;
+        if (!kind) return;
+        const sendCodecs = RTCRtpSender.getCapabilities(kind);
+        const recvCodecs = RTCRtpReceiver.getCapabilities(kind);
+
+        /*  if (kind === "video") {
+          sendCodecs = 
+          recvCodecs = 
+          console.log("")
+        } */
+
+        if (kind === "video") {
+          const sendCodec = sendCodecs?.codecs.find((codec) =>
+            codec.mimeType.includes("AV1")
+          );
+          const recvCodec = recvCodecs?.codecs.find((codec) =>
+            codec.mimeType.includes("AV1")
+          );
+          // FIXME: vp9 codec이 있다고 가정.
+          transceiver.setCodecPreferences([sendCodec!, recvCodec!]);
+        }
+        if (kind === "audio") {
+          const sendCodec = sendCodecs?.codecs.find((codec) =>
+            codec.mimeType.includes("opus")
+          );
+          const recvCodec = recvCodecs?.codecs.find((codec) =>
+            codec.mimeType.includes("opus")
+          );
+          // FIXME: vp9 codec이 있다고 가정.
+          transceiver.setCodecPreferences([sendCodec!, recvCodec!]);
+        }
+        // console.log(kind, sendCodecs?.codecs);
+        // console.log(kind, recvCodecs?.codecs);
+        myPeerConnectionRef.current.onnegotiationneeded();
+      });
+    }
+  }
+
   const onSubmit = ({ title, description }: z.infer<typeof formSchema>) => {
     if (myStream) {
       socket.emit("start_broadcast", { title, description, liveId });
@@ -74,33 +117,29 @@ export default function Page() {
             ],
           },
         ],
-        iceTransportPolicy: "relay",
-        bundlePolicy: "max-bundle",
-        rtcpMuxPolicy: "require",
       });
       /*       myPeerConnectionRef.current.addEventListener("icecandidate", (data) => {
         console.log(data);
       });
        */
       myStream.getTracks().forEach((track) => {
-        const sender = myPeerConnectionRef.current?.addTrack(track, myStream);
-
-        // 비디오 트랙인 경우 인코딩 파라미터 설정
-        if (track.kind === "video" && sender) {
-          const parameters = sender.getParameters();
-          if (!parameters.encodings) {
-            parameters.encodings = [{}];
-          }
-
-          // 비트레이트 증가, 품질 우선 설정
-          parameters.encodings[0].maxBitrate = 10 * 1000 * 1000;
-          parameters.encodings[0].scaleResolutionDownBy = 1; // 해상도 그대로 유지
-
-          sender
-            .setParameters(parameters)
-            .catch((e) => console.error("인코딩 파라미터 설정 실패:", e));
-        }
+        myPeerConnectionRef.current?.addTrack(track, myStream);
       });
+
+      myPeerConnectionRef.current.addEventListener(
+        "icegatheringstatechange",
+        () => {
+          /*  if (myPeerConnectionRef.current?.iceGatheringState === "complete") {
+            const senders = myPeerConnectionRef.current.getSenders();
+            senders.forEach((sender) => {
+              if (sender.track?.kind === "video") {
+                console.log(sender.getParameters().codecs);
+              }
+            });
+          } */
+          changeVideoCodec();
+        }
+      );
     }
   };
 
